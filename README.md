@@ -77,7 +77,7 @@ The core workflow is **browser-local** and does not require cloud AI, paid stora
 
 ### Flipkart
 
-![flipkartproof](image.png)
+![Flipkart proof](docs/assets/image.png)
 
 Confirmed layout family:
 
@@ -106,7 +106,7 @@ Conceptually:
 ```
 
 ### Amazon
-![amazon](image-1.png)
+![Amazon proof](docs/assets/image-1.png)
 
 Confirmed layout family:
 
@@ -121,7 +121,7 @@ The adapter:
 - uses visual meaningful-content bounds and layout evidence.
 
 ### Meesho
-![meesho](image-2.png)
+![Meesho proof](docs/assets/image-2.png)
 
 Confirmed layout family:
 
