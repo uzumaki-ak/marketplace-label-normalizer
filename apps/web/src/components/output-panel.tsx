@@ -1,0 +1,204 @@
+"use client";
+
+import type {
+  Batch,
+  BatchDocument,
+  BatchLabel,
+  PdfRect,
+} from "@label-normalizer/core";
+import { StatusBadge } from "@label-normalizer/ui";
+import { useState } from "react";
+
+export function OutputPanel({ batch }: { readonly batch: Batch }) {
+  const [view, setView] = useState<"thumbnails" | "list">("thumbnails");
+  const [showPreview, setShowPreview] = useState(false);
+  const [printMessage, setPrintMessage] = useState<string | null>(null);
+  const artifact = batch.combinedPdf;
+  const labels = [...batch.labels].sort(
+    (left, right) => left.outputOrder - right.outputOrder,
+  );
+  if (labels.length === 0 && batch.status !== "ready") return null;
+
+  return (
+    <section className="panel output-panel" aria-labelledby="output-title">
+      <div className="panel-heading output-heading">
+        <div>
+          <span className="eyebrow">FINAL BATCH</span>
+          <h2 id="output-title">PRINT_READY_LABELS.pdf</h2>
+        </div>
+        <div className="output-actions">
+          <button
+            disabled={!artifact?.objectUrl}
+            onClick={() => setShowPreview((current) => !current)}
+            type="button"
+          >
+            PREVIEW
+          </button>
+          <button
+            disabled={!artifact?.objectUrl}
+            onClick={() => artifact && downloadCombinedPdf(artifact)}
+            type="button"
+          >
+            DOWNLOAD PDF
+          </button>
+          <button
+            disabled={!artifact?.objectUrl}
+            onClick={() => {
+              const opened = artifact ? printCombinedPdf(artifact) : false;
+              setPrintMessage(
+                opened
+                  ? "Print window opened for the combined 100 × 150 mm PDF."
+                  : "The browser blocked the print window. Allow popups and try again.",
+              );
+            }}
+            type="button"
+          >
+            PRINT ALL
+          </button>
+        </div>
+      </div>
+
+      <div className="output-toolbar">
+        <p>
+          {`${batch.counts.documentsTotal} PDFs / ${batch.counts.sourcePages} SOURCE PAGES / ${batch.counts.labelsDiscovered} LABELS / ${batch.counts.labelsReady} READY / ${batch.counts.reviewRequired} REVIEW / ${batch.counts.labelsFailed + batch.counts.documentsFailed} FAILED`}
+        </p>
+        <div>
+          <button
+            aria-pressed={view === "thumbnails"}
+            onClick={() => setView("thumbnails")}
+            type="button"
+          >
+            THUMBNAILS
+          </button>
+          <button
+            aria-pressed={view === "list"}
+            onClick={() => setView("list")}
+            type="button"
+          >
+            LIST
+          </button>
+        </div>
+      </div>
+
+      {printMessage && (
+        <p className="output-message" role="status">
+          {printMessage}
+        </p>
+      )}
+      {showPreview && artifact?.objectUrl && (
+        <div className="combined-preview">
+          <iframe
+            src={artifact.objectUrl}
+            title={`Combined PDF preview, ${artifact.pageCount} pages`}
+          />
+        </div>
+      )}
+
+      <div className={`label-results label-results--${view}`}>
+        {labels.map((label) => {
+          const sourceDocument = batch.documents.find(
+            (document) => document.id === label.documentId,
+          );
+          return (
+            <LabelResult
+              {...(sourceDocument ? { document: sourceDocument } : {})}
+              key={label.id}
+              label={label}
+              view={view}
+            />
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function LabelResult({
+  label,
+  document,
+  view,
+}: {
+  readonly label: BatchLabel;
+  readonly document?: BatchDocument;
+  readonly view: "thumbnails" | "list";
+}) {
+  const page = document?.pages.find((item) => item.id === label.pageId);
+  const crop = page?.geometry
+    ? pdfRectToPercent(label.region.boundsPt, page.geometry.mediaBox)
+    : undefined;
+  const decoded = label.validation?.machineReadableCodes.filter(
+    (code) => code.decoded,
+  ).length;
+  return (
+    <article className="label-result" data-status={label.status}>
+      {view === "thumbnails" && (
+        <div className="label-thumbnail">
+          {page?.preview ? (
+            // Source-preview thumbnail only; final output remains the native PDF.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img alt="" src={page.preview.objectUrl} />
+          ) : (
+            <span>NO PREVIEW</span>
+          )}
+          {crop && <i style={crop} />}
+        </div>
+      )}
+      <div className="label-result-copy">
+        <div>
+          <strong>
+            LABEL {(label.outputOrder + 1).toString().padStart(2, "0")}
+          </strong>
+          <StatusBadge status={label.status} />
+        </div>
+        <p>
+          {label.marketplace.toUpperCase()} / SOURCE PAGE{" "}
+          {label.sourcePageNumber}
+          {label.normalized ? " / 100 × 150 MM" : ""}
+        </p>
+        <small>
+          {decoded ?? 0} DECODED
+          {label.duplicateOf ? " / DUPLICATE WARNING" : ""}
+          {label.error ? ` / ${label.error.code}` : ""}
+        </small>
+      </div>
+    </article>
+  );
+}
+
+export function downloadCombinedPdf(artifact: {
+  readonly filename: string;
+  readonly objectUrl?: string;
+}): void {
+  if (!artifact.objectUrl) return;
+  const anchor = document.createElement("a");
+  anchor.href = artifact.objectUrl;
+  anchor.download = artifact.filename;
+  anchor.click();
+}
+
+export function printCombinedPdf(artifact: {
+  readonly objectUrl?: string;
+}): boolean {
+  if (!artifact.objectUrl) return false;
+  const printWindow = window.open(artifact.objectUrl, "_blank");
+  if (!printWindow) return false;
+  let invoked = false;
+  const invokePrint = () => {
+    if (invoked) return;
+    invoked = true;
+    printWindow.focus();
+    printWindow.print();
+  };
+  printWindow.addEventListener("load", invokePrint, { once: true });
+  window.setTimeout(invokePrint, 750);
+  return true;
+}
+
+function pdfRectToPercent(rect: PdfRect, media: PdfRect) {
+  return {
+    left: `${((rect.x - media.x) / media.width) * 100}%`,
+    top: `${((media.y + media.height - rect.y - rect.height) / media.height) * 100}%`,
+    width: `${(rect.width / media.width) * 100}%`,
+    height: `${(rect.height / media.height) * 100}%`,
+  };
+}

@@ -1,0 +1,60 @@
+from datetime import datetime
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict
+
+ProcessingStage = Literal[
+    "ingest",
+    "parse",
+    "classify",
+    "extract",
+    "normalize",
+    "validate",
+    "review",
+    "assemble",
+    "complete",
+]
+EventStatus = Literal["queued", "running", "success", "warning", "failed"]
+
+
+class ProcessingEventOut(BaseModel):
+    id: str
+    sequence: int
+    batchId: str
+    documentId: str | None = None
+    pageId: str | None = None
+    stage: ProcessingStage
+    status: EventStatus
+    progress: float | None = None
+    message: str
+    timestamp: datetime
+    metadata: dict[str, Any] | None = None
+
+
+class DocumentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    safe_name: str
+    size_bytes: int
+    page_count: int | None
+    status: str
+    error_code: str | None
+
+
+class BatchOut(BaseModel):
+    id: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    expires_at: datetime
+    documents: list[DocumentOut]
+
+
+class ProviderStatus(BaseModel):
+    database: str
+    storage: str
+    queue: str
+    imagekit_enabled: bool
+    ai_enabled: bool
+    vision_providers: list[str]

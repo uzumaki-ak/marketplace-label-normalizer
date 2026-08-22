@@ -1,0 +1,34 @@
+{
+  "marketplace": "flipkart",
+  "layoutFingerprint": "flipkart/a4-ekart-tax-invoice/v1",
+  "fixtures": [
+    {
+      "file": "invoice_labels_1786940253611.pdf",
+      "sha256Prefix": "0e90d208a3037919",
+      "sourcePages": 5,
+      "expectedLabels": 5,
+      "expectedIgnoredInvoiceRegions": 5
+    },
+    {
+      "file": "invoice_labels_1787124642173.pdf",
+      "sha256Prefix": "784f0718dd34b816",
+      "sourcePages": 2,
+      "expectedLabels": 2,
+      "expectedIgnoredInvoiceRegions": 2
+    },
+    {
+      "file": "invoice_labels_1787198629737.pdf",
+      "sha256Prefix": "cedafc45f745bbe9",
+      "sourcePages": 3,
+      "expectedLabels": 3,
+      "expectedIgnoredInvoiceRegions": 3
+    }
+  ],
+  "expectedCropPt": {
+    "x": 189.25,
+    "y": 458.25,
+    "width": 217,
+    "height": 356.5,
+    "tolerance": 1
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "marketplace": "meesho",
+  "layoutFingerprint": "meesho/a4-sub-order-label-invoice/v1",
+  "fixtures": [
+    {
+      "file": "Sub_Order_Labels_0c77f231-376f-4b40-b41d-cdc02a9a998d.pdf",
+      "sha256": "4477515d55ee61192286442d0f26134c254657209acce3257a6d5a94d57b8a8f",
+      "sourcePages": 1,
+      "expectedLabels": 1,
+      "carrierVariant": "xpressbees"
+    },
+    {
+      "file": "Sub_Order_Labels_0f336246-9e3a-430a-adb2-7928fb25be90.pdf",
+      "sha256": "27dcfd1c793d055e5762b25017bb9bf15d3a13fdac923578c8b7b344db94cb2e",
+      "sourcePages": 1,
+      "expectedLabels": 1,
+      "carrierVariant": "valmo"
+    },
+    {
+      "file": "Sub_Order_Labels_5dc607bf-c639-4e34-85d4-ba221312a317.pdf",
+      "sha256": "d3b6209e82095034ec87ff9f7d5dbe82dfdb9d06ce83fde5f8071317ba5aae3e",
+      "sourcePages": 1,
+      "expectedLabels": 1,
+      "carrierVariant": "delhivery"
+    }
+  ],
+  "cropTolerancePt": {
+    "xMax": 20,
+    "yMin": 220,
+    "yMax": 270,
+    "widthMin": 560,
+    "heightMin": 560,
+    "heightMax": 630
+  }
+}

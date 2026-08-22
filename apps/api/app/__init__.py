@@ -1,0 +1,1 @@
+"""Server fallback modular monolith."""

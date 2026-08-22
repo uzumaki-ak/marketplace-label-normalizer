@@ -1,0 +1,21 @@
+{
+  "marketplace": "amazon",
+  "layoutFingerprint": "amazon/a4-raster-label-with-supplier-invoice/v1",
+  "fixtures": [
+    {
+      "file": "document (6).pdf",
+      "sha256": "0d60d762914f090d648d912b34f8a4d779a864191639b713e8aa87bfcf8a428e",
+      "sourcePages": 2,
+      "expectedLabels": 1,
+      "expectedIgnoredSupplierInvoices": 1
+    },
+    {
+      "file": "document (6) (1).pdf",
+      "sha256": "0d60d762914f090d648d912b34f8a4d779a864191639b713e8aa87bfcf8a428e",
+      "sourcePages": 2,
+      "expectedLabels": 1,
+      "expectedIgnoredSupplierInvoices": 1,
+      "duplicateOf": "document (6).pdf"
+    }
+  ]
+}

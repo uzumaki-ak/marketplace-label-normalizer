@@ -1,0 +1,217 @@
+name: label-normalizer
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /config/caddy
+    security_opt:
+      - no-new-privileges:true
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    environment:
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+    expose:
+      - "3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/apps/web/.next/cache
+    security_opt:
+      - no-new-privileges:true
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    command:
+      [
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--workers",
+        "1",
+        "--timeout-keep-alive",
+        "10",
+      ]
+    environment: &backend_environment
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://labels:labels@postgres:5432/labels}
+      VALKEY_URL: ${VALKEY_URL:-redis://valkey:6379/0}
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+      LOCAL_STORAGE_ROOT: /var/lib/label-normalizer
+      MAX_FILE_BYTES: ${MAX_FILE_BYTES:-26214400}
+      MAX_BATCH_DOCUMENTS: ${MAX_BATCH_DOCUMENTS:-20}
+      MAX_PDF_PAGES: ${MAX_PDF_PAGES:-200}
+      PROCESSING_TIMEOUT_SECONDS: ${PROCESSING_TIMEOUT_SECONDS:-120}
+      TEMP_FILE_TTL_SECONDS: ${TEMP_FILE_TTL_SECONDS:-3600}
+      IMAGEKIT_PRIVATE_KEY: ${IMAGEKIT_PRIVATE_KEY:-}
+      IMAGEKIT_PUBLIC_KEY: ${IMAGEKIT_PUBLIC_KEY:-}
+      IMAGEKIT_URL_ENDPOINT: ${IMAGEKIT_URL_ENDPOINT:-}
+      AI_ENABLED: ${AI_ENABLED:-false}
+      LOCAL_VISION_ENABLED: ${LOCAL_VISION_ENABLED:-false}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.4}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.6-flash}
+      VISION_MAX_IMAGE_BYTES: ${VISION_MAX_IMAGE_BYTES:-5242880}
+      VISION_AUTO_APPROVE_CONFIDENCE: ${VISION_AUTO_APPROVE_CONFIDENCE:-0.85}
+    expose:
+      - "8000"
+    volumes:
+      - temporary_files:/var/lib/label-normalizer
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    command:
+      [
+        "celery",
+        "-A",
+        "app.celery_app:celery_app",
+        "worker",
+        "--loglevel=INFO",
+        "--beat",
+        "--schedule=/tmp/celerybeat-schedule",
+        "--concurrency=${WORKER_CONCURRENCY:-2}",
+        "--max-tasks-per-child=50",
+      ]
+    environment: *backend_environment
+    volumes:
+      - temporary_files:/var/lib/label-normalizer
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  storage-init:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    user: "0:0"
+    command:
+      [
+        "python",
+        "-c",
+        "import os; os.makedirs('/var/lib/label-normalizer', exist_ok=True); os.chown('/var/lib/label-normalizer', 1001, 1001)",
+      ]
+    volumes:
+      - temporary_files:/var/lib/label-normalizer
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: labels
+      POSTGRES_USER: labels
+      POSTGRES_PASSWORD: labels
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U labels -d labels"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    security_opt:
+      - no-new-privileges:true
+
+  valkey:
+    image: valkey/valkey:8.1-alpine
+    restart: unless-stopped
+    command:
+      [
+        "valkey-server",
+        "--save",
+        "",
+        "--appendonly",
+        "no",
+        "--maxmemory",
+        "256mb",
+        "--maxmemory-policy",
+        "noeviction",
+      ]
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    read_only: true
+    tmpfs:
+      - /data
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  postgres_data:
+  temporary_files:
+  caddy_data:
+  caddy_config:
