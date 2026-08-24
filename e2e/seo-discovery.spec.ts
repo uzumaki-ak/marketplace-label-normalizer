@@ -1,0 +1,59 @@
+import { expect, test } from "@playwright/test";
+
+test("publishes complete search, social, app, and LLM discovery metadata", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/");
+
+  await expect(page).toHaveTitle(
+    "Marketplace Shipping Label Normalizer | Flipkart, Amazon & Meesho",
+  );
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+    "content",
+    /Flipkart, Amazon, and Meesho shipping PDFs/,
+  );
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+    "href",
+    "https://marketplace-label-normalizer.onrender.com",
+  );
+  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+    "content",
+    /Marketplace Shipping Label Normalizer/,
+  );
+  await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
+    "content",
+    "summary_large_image",
+  );
+  await expect(page.locator('link[rel="icon"]')).toHaveAttribute(
+    "href",
+    "/favicon.svg",
+  );
+  await expect(page.locator('link[rel="manifest"]')).toHaveAttribute(
+    "href",
+    "/manifest.webmanifest",
+  );
+
+  const structuredData = JSON.parse(
+    (await page.locator('script[type="application/ld+json"]').textContent()) ??
+      "{}",
+  ) as { "@graph"?: Array<{ "@type"?: string }> };
+  expect(structuredData["@graph"]?.map((entry) => entry["@type"])).toEqual([
+    "WebSite",
+    "WebApplication",
+  ]);
+
+  const expectedRoutes = [
+    ["/robots.txt", /Sitemap: .*\/sitemap\.xml/],
+    ["/sitemap.xml", /marketplace-label-normalizer\.onrender\.com/],
+    ["/manifest.webmanifest", /Marketplace Shipping Label Normalizer/],
+    ["/llms.txt", /local-first web application/],
+    ["/llms-full.txt", /Page size: exactly 100 x 150 mm/],
+  ] as const;
+
+  for (const [path, expectedContent] of expectedRoutes) {
+    const response = await request.get(path);
+    expect(response.ok(), `${path} should be reachable`).toBe(true);
+    expect(await response.text()).toMatch(expectedContent);
+  }
+});
